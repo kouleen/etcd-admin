@@ -1,0 +1,11 @@
+services:
+  etcd-admin:
+    image: ghcr.io/kouleen/etcd-admin:latest
+    container_name: etcd-admin
+    ports:
+      - "8769:8080"
+    networks:
+      - etcd-internal
+networks:
+  etcd-internal:
+    external: true

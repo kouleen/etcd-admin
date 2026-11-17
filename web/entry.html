@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>etcd 可视化客户端 - 连接 etcd 服务器</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=nov17kvbm" />
+</head>
+<body data-theme="dark">
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+
+  <div class="entry-root">
+    <div class="auth-card">
+      <div class="auth-head">
+        <div class="auth-logo">E</div>
+        <div>
+          <div class="auth-title">Etcd 管理面板</div>
+          <div class="auth-sub">连接到你的 etcd 服务器</div>
+        </div>
+      </div>
+
+      <form id="entryForm" autocomplete="off" onsubmit="return false;">
+        <div class="grid2" style="margin-bottom:12px">
+          <div>
+            <label>主机</label>
+            <input id="fHost" placeholder="主机或域名" value="etcd" />
+          </div>
+          <div>
+            <label>端口</label>
+            <input id="fPort" placeholder="2379" inputmode="numeric" value="2379" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label>用户名</label>
+          <input id="fUser" placeholder="可留空，etcd 默认匿名" />
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label>密码</label>
+          <input id="fPass" type="password" placeholder="若启用了 auth 则填写" />
+        </div>
+
+        <button type="submit" class="submit" id="submitBtn">连 接</button>
+        <div class="auth-status" id="authStatus"></div>
+      </form>
+
+      <div class="auth-tip">连接信息仅存在服务端内存中，重启即失效。</div>
+    </div>
+  </div>
+
+  <script src="/static/js/util.js?v=nov17kvbm"></script>
+  <script>
+  (function () {
+    const { $, post, toast, Theme } = window.App;
+    Theme.init();
+
+    const form = $('#entryForm');
+    const submitBtn = $('#submitBtn');
+    const statusEl = $('#authStatus');
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text || '';
+      statusEl.className = 'auth-status' + (kind ? ' ' + kind : '');
+    }
+
+    // 页面加载时先查后端已有连接状态：若已连上直接跳主页
+    (async function probe() {
+      try {
+        const r = await fetch('/api/status', { cache: 'no-store' });
+        if (!r.ok) return;
+        const body = await r.json();
+        if (body.data && body.data.connected) {
+          location.replace('/'); // 后端会返回主 index.html
+        }
+      } catch (e) { /* 忽略，继续展示表单 */ }
+    })();
+
+    form.addEventListener('submit', async () => {
+      const host = $('#fHost').value.trim();
+      const port = $('#fPort').value.trim();
+      const user = $('#fUser').value.trim();
+      const pass = $('#fPass').value;
+
+      if (!host) { toast('请填写主机', 'error'); return; }
+      const endpoints = port ? `${host}:${port}` : host;
+
+      submitBtn.disabled = true;
+      setStatus('正在连接…', 'loading');
+
+      try {
+        await post('/api/connection/connect', {
+          endpoints, username: user, password: pass,
+        });
+        setStatus('连接成功，正在进入控制台…', 'ok');
+        setTimeout(() => location.replace('/'), 400);
+      } catch (e) {
+        setStatus('连接失败：' + e.message, 'err');
+        toast(e.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

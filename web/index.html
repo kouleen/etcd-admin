@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>etcd · 控制台</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=nov17kvbm" />
+</head>
+<body data-theme="dark">
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+
+  <div class="layout">
+    <!-- 侧边导航 -->
+    <aside class="sidebar glass">
+      <div class="brand">
+        <div class="brand-logo">E</div>
+        <div class="brand-text">
+          <strong>etcd 控制台</strong>
+          <small>Etcd Visual Client</small>
+        </div>
+      </div>
+
+      <nav class="nav" id="navMenu">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-ico">◈</span><span>仪表盘</span></button>
+        <button class="nav-item" data-view="kv"><span class="nav-ico">⌗</span><span>键值浏览</span></button>
+        <button class="nav-item" data-view="watch"><span class="nav-ico">◉</span><span>实时监听</span><em class="nav-dot" id="watchNavDot" hidden></em></button>
+        <button class="nav-item" data-view="lease"><span class="nav-ico">⏱</span><span>租约管理</span></button>
+        <button class="nav-item" data-view="auth"><span class="nav-ico">⛨</span><span>用户与角色</span></button>
+        <button class="nav-item" data-view="metrics"><span class="nav-ico">∿</span><span>指标监控</span></button>
+        <button class="nav-item" data-view="connection"><span class="nav-ico">⇄</span><span>连接设置</span></button>
+      </nav>
+
+      <div class="side-footer">
+        <div class="conn-pill" id="connPill">
+          <i class="dot"></i><span id="connText">检测中…</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main">
+      <header class="topbar glass">
+        <button class="icon-btn mobile-only" id="menuBtn" aria-label="菜单">☰</button>
+        <h1 id="pageTitle">仪表盘</h1>
+        <div class="topbar-right">
+          <button class="icon-btn" id="themeBtn" title="切换主题">🌙</button>
+          <button class="btn ghost" id="refreshBtn">↻ 刷新</button>
+          <button class="disconnect-btn" id="disconnectBtn">断开连接</button>
+        </div>
+      </header>
+
+      <!-- 仪表盘 -->
+      <section class="view active" id="view-dashboard">
+        <div class="stat-grid" id="endpointGrid"></div>
+
+        <div class="glass panel">
+          <div class="panel-head">
+            <h2>集群成员</h2>
+            <button class="btn ghost sm" id="alarmBtn">查看告警</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>名称</th><th>成员 ID</th><th>Client URL</th><th>Peer URL</th><th>角色</th></tr></thead>
+              <tbody id="memberBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass panel">
+          <div class="panel-head"><h2>维护操作</h2><small>压缩历史版本与碎片整理可释放存储空间</small></div>
+          <div class="maintain-row">
+            <div class="inline-form">
+              <input type="number" id="compactRevision" placeholder="输入要压缩到的 revision" min="1" />
+              <button class="btn primary" id="compactBtn">压缩 (Compact)</button>
+            </div>
+            <button class="btn warn" id="defragBtn">碎片整理 (Defragment)</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 键值浏览 -->
+      <section class="view" id="view-kv" hidden>
+        <div class="glass panel">
+          <div class="toolbar">
+            <input type="text" id="kvSearch" class="grow" placeholder="搜索键名关键词，回车执行" />
+            <label class="switch"><input type="checkbox" id="searchInValue" /><span class="slider"></span><em>含值搜索</em></label>
+            <button class="btn primary" id="kvSearchBtn">搜索</button>
+            <button class="btn accent" id="kvCreateBtn">＋ 新建键</button>
+            <button class="btn ghost" id="kvImportBtn">⇪ 导入</button>
+            <button class="btn ghost" id="kvExportBtn">⇩ 导出</button>
+            <input type="file" id="importFile" accept=".json,application/json" hidden />
+          </div>
+        </div>
+
+        <div class="kv-layout">
+          <!-- 左侧键树 + 书签 -->
+          <div class="glass panel kv-side" id="kvSide">
+            <div class="kv-side-head">
+              <h2>键目录</h2>
+              <button class="link-btn" id="treeReloadBtn">↻</button>
+            </div>
+            <div class="tree-box" id="treeBox"></div>
+            <div class="bookmark-box">
+              <div class="kv-side-head"><h2>书签</h2><small id="bookmarkCount"></small></div>
+              <div id="bookmarkList" class="bookmark-list"></div>
+            </div>
+          </div>
+
+          <!-- 右侧键表 -->
+          <div class="glass panel kv-main">
+            <div class="panel-head">
+              <h2 id="kvTableTitle">全部键</h2>
+              <small id="kvTableHint"></small>
+            </div>
+            <div class="table-wrap">
+              <table class="table kv-table">
+                <thead>
+                  <tr>
+                    <th class="col-check"><input type="checkbox" id="kvCheckAll" /></th>
+                    <th>Key</th><th>Value</th><th>版本</th><th>修改版本</th><th>租约</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="kvBody">
+                  <tr class="placeholder-row"><td colspan="7">点击左侧目录或执行搜索加载键</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-foot" id="kvFoot" hidden>
+              <span id="kvCount"></span>
+              <div class="foot-actions">
+                <button class="btn danger sm" id="kvBatchDelBtn" disabled>批量删除</button>
+                <button class="btn ghost sm" id="kvLoadMoreBtn" hidden>加载更多</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 实时监听 -->
+      <section class="view" id="view-watch" hidden>
+        <div class="glass panel">
+          <div class="panel-head"><h2>Watch 实时事件</h2><small>基于 SSE 长连接，键变更自动推送</small></div>
+          <div class="toolbar">
+            <input type="text" id="watchPrefix" class="grow" placeholder="监听前缀，例如 kitex/" />
+            <button class="btn primary" id="watchStartBtn">开始监听</button>
+            <button class="btn ghost" id="watchStopBtn" disabled>停止</button>
+            <label class="switch"><input type="checkbox" id="autoScroll" checked /><span class="slider"></span><em>自动滚动</em></label>
+            <button class="btn ghost sm" id="watchClearBtn">清空</button>
+          </div>
+          <div class="watch-status">
+            <i class="dot off" id="watchDot"></i>
+            <span id="watchStatusText">未连接</span>
+            <span class="spacer"></span>
+            <span id="watchEventCount">事件数 0</span>
+          </div>
+          <div class="event-stream" id="eventStream"></div>
+        </div>
+      </section>
+
+      <!-- 租约管理 -->
+      <section class="view" id="view-lease" hidden>
+        <div class="glass panel">
+          <div class="panel-head"><h2>新建租约</h2><small>租约过期后绑定的键将自动删除</small></div>
+          <div class="inline-form">
+            <input type="number" id="leaseTTL" placeholder="TTL（秒）" min="1" />
+            <button class="btn primary" id="leaseGrantBtn">创建租约</button>
+            <button class="btn ghost" id="leaseRefreshBtn">刷新列表</button>
+          </div>
+        </div>
+        <div class="lease-grid" id="leaseGrid"></div>
+      </section>
+
+      <!-- 用户与角色 -->
+      <section class="view" id="view-auth" hidden>
+        <div class="glass panel">
+          <div class="panel-head">
+            <h2>认证状态</h2>
+            <span class="badge" id="authStatusBadge">加载中…</span>
+            <button class="btn warn sm" id="authEnableBtn" hidden>开启认证</button>
+            <button class="btn danger sm" id="authDisableBtn" hidden>关闭认证</button>
+          </div>
+          <p class="modal-tip" id="authTip"></p>
+        </div>
+
+        <div class="auth-grid">
+          <div class="glass panel">
+            <div class="panel-head"><h2>用户</h2><button class="btn primary sm" id="userCreateBtn">＋ 新建用户</button></div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>用户名</th><th>角色</th><th>操作</th></tr></thead>
+                <tbody id="userBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="glass panel">
+            <div class="panel-head"><h2>角色</h2><button class="btn primary sm" id="roleCreateBtn">＋ 新建角色</button></div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>角色名</th><th>权限</th><th>操作</th></tr></thead>
+                <tbody id="roleBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 指标监控 -->
+      <section class="view" id="view-metrics" hidden>
+        <div class="stat-grid" id="metricCards"></div>
+        <div class="chart-grid">
+          <div class="glass panel chart-panel">
+            <div class="panel-head"><h2>DB 大小趋势</h2><small id="dbSizeNow"></small></div>
+            <div class="chart-box" id="chartDbSize"></div>
+          </div>
+          <div class="glass panel chart-panel">
+            <div class="panel-head"><h2>Revision 增长</h2><small id="revisionNow"></small></div>
+            <div class="chart-box" id="chartRevision"></div>
+          </div>
+          <div class="glass panel chart-panel">
+            <div class="panel-head"><h2>键数量变化</h2><small id="keysNow"></small></div>
+            <div class="chart-box" id="chartKeys"></div>
+          </div>
+          <div class="glass panel chart-panel">
+            <div class="panel-head"><h2>租约数量</h2><small id="leasesNow"></small></div>
+            <div class="chart-box" id="chartLeases"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 连接设置 -->
+      <section class="view" id="view-connection" hidden>
+        <div class="glass panel">
+          <div class="panel-head"><h2>当前连接</h2></div>
+          <div id="connDetail" class="conn-detail"></div>
+        </div>
+        <div class="glass panel">
+          <div class="panel-head"><h2>切换连接</h2><small>仅作为 etcd 客户端连接目标集群，不会在本地启动 etcd</small></div>
+          <div class="field"><label>Endpoints（多个用英文逗号分隔）</label>
+            <input type="text" id="cfgEndpoints" placeholder="host1:2379,host2:2379" />
+          </div>
+          <div class="field-row">
+            <div class="field"><label>用户名（可选）</label><input type="text" id="cfgUsername" autocomplete="off" /></div>
+            <div class="field"><label>密码（可选）</label><input type="password" id="cfgPassword" autocomplete="new-password" /></div>
+          </div>
+          <div class="inline-form">
+            <button class="btn ghost" id="cfgTestBtn">测试连接</button>
+            <button class="btn primary" id="cfgSaveBtn">保存并连接</button>
+          </div>
+          <p class="modal-tip" id="cfgResult"></p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-mask" id="drawerMask" hidden></div>
+  <div id="toastRoot" class="toast-root"></div>
+  <div id="modalRoot"></div>
+
+  <script src="/static/js/util.js?v=nov17kvbm"></script>
+  <script src="/static/js/dashboard.js?v=nov17kvbm"></script>
+  <script src="/static/js/kv.js?v=nov17kvbm"></script>
+  <script src="/static/js/watch.js?v=nov17kvbm"></script>
+  <script src="/static/js/lease.js?v=nov17kvbm"></script>
+  <script src="/static/js/auth.js?v=nov17kvbm"></script>
+  <script src="/static/js/metrics.js?v=nov17kvbm"></script>
+  <script src="/static/js/connection.js?v=nov17kvbm"></script>
+  <script src="/static/js/app.js?v=nov17kvbm"></script>
+</body>
+</html>
